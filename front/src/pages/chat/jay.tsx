@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FaMicrophone, FaStop, FaSpinner, FaPaperPlane, FaCoins } from 'react-icons/fa'
+import { FaMicrophone, FaStop, FaSpinner, FaPaperPlane, FaCoins, FaCrown, FaTimes, FaPlay, FaYoutube, FaExpand } from 'react-icons/fa'
 import { Helmet } from 'react-helmet'
+import styled from 'styled-components'
 import jayAgentImage from '../../jayagent.webp'
 
 const API_BASE_URL = 'http://localhost:3000'
@@ -21,6 +22,418 @@ declare global {
   }
 }
 
+const ChatContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  position: relative;
+  overflow: hidden;
+`
+
+const BackgroundEffect = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.8) 100%);
+  pointer-events: none;
+`
+
+const Header = styled(motion.div)`
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+`
+
+const AgentImage = styled.img`
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
+  margin-right: 1rem;
+  border: 2px solid #39FF14;
+`
+
+const AgentInfo = styled.div`
+  color: #fff;
+  h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+  }
+  p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+  }
+`
+
+const ChatArea = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(57, 255, 20, 0.5);
+    border-radius: 3px;
+  }
+`
+
+const MessageGroup = styled.div<{ $isAi?: boolean }>`
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  flex-direction: ${props => props.$isAi ? 'row' : 'row-reverse'};
+`
+
+const MessageProfile = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`
+
+const ProfileImage = styled.img`
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  border: 2px solid #39FF14;
+  box-shadow: 0 0 10px rgba(57, 255, 20, 0.3);
+`
+
+const ProfileName = styled.span`
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 0.5rem;
+`
+
+const MessageBubble = styled(motion.div)<{ $isAi?: boolean }>`
+  max-width: 70%;
+  padding: 1rem;
+  border-radius: ${props => props.$isAi ? '20px 20px 20px 0' : '20px 20px 0 20px'};
+  background: ${props => props.$isAi ? 'rgba(57, 255, 20, 0.1)' : 'rgba(255, 255, 255, 0.1)'};
+  color: #fff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    border-radius: inherit;
+    box-shadow: 0 0 20px ${props => props.$isAi ? 'rgba(57, 255, 20, 0.2)' : 'rgba(255, 255, 255, 0.1)'};
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  &:hover::before {
+    opacity: 1;
+  }
+`
+
+const InputArea = styled.div`
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`
+
+const Input = styled.textarea`
+  flex: 1;
+  padding: 0.8rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  resize: none;
+  height: 40px;
+  line-height: 20px;
+  
+  &:focus {
+    outline: none;
+    border-color: #39FF14;
+    box-shadow: 0 0 10px rgba(57, 255, 20, 0.3);
+  }
+`
+
+const Button = styled(motion.button)`
+  background: transparent;
+  border: none;
+  color: #39FF14;
+  padding: 0.5rem;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &:hover {
+    background: rgba(57, 255, 20, 0.1);
+  }
+  
+  &:disabled {
+    color: rgba(255, 255, 255, 0.3);
+    cursor: not-allowed;
+  }
+`
+
+const TypingIndicator = styled(motion.div)`
+  display: flex;
+  gap: 4px;
+  padding: 0.5rem;
+  
+  span {
+    width: 4px;
+    height: 4px;
+    background: #39FF14;
+    border-radius: 50%;
+  }
+`
+
+const SuperChatModal = styled(motion.div)`
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(20, 20, 40, 0.95);
+  border: 1px solid rgba(57, 255, 20, 0.3);
+  border-radius: 20px;
+  padding: 2rem;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 0 30px rgba(57, 255, 20, 0.2);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+`
+
+const ModalOverlay = styled(motion.div)`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  z-index: 999;
+`
+
+const ModalHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  color: #fff;
+  
+  h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+`
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 0.5rem;
+  
+  &:hover {
+    color: #fff;
+  }
+`
+
+const SuperChatButton = styled(Button)`
+  background: rgba(57, 255, 20, 0.1);
+  border: 1px solid rgba(57, 255, 20, 0.3);
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  gap: 0.5rem;
+  
+  &:hover {
+    background: rgba(57, 255, 20, 0.2);
+  }
+`
+
+const SuperChatBubble = styled(MessageBubble)`
+  background: linear-gradient(135deg, rgba(57, 255, 20, 0.2), rgba(0, 255, 157, 0.2));
+  border: 1px solid rgba(57, 255, 20, 0.3);
+  
+  &::before {
+    box-shadow: 0 0 30px rgba(57, 255, 20, 0.3);
+  }
+`
+
+const CoinBalance = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #39FF14;
+  font-size: 0.9rem;
+  margin-left: auto;
+  padding: 0.5rem 1rem;
+  background: rgba(57, 255, 20, 0.1);
+  border-radius: 20px;
+  border: 1px solid rgba(57, 255, 20, 0.2);
+`
+
+interface VideoRecommendation {
+  id: string;
+  title: string;
+  thumbnail: string;
+  duration: string;
+  difficulty: string;
+  category: string;
+}
+
+interface Message {
+  type: 'user' | 'ai';
+  text: string;
+  isSuper?: boolean;
+  recommendations?: VideoRecommendation[];
+  videoId?: string;
+}
+
+const VideoRecommendationCard = styled(motion.div)`
+  background: rgba(20, 20, 40, 0.95);
+  border: 1px solid rgba(57, 255, 20, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  cursor: pointer;
+  
+  &:hover {
+    background: rgba(57, 255, 20, 0.1);
+  }
+`
+
+const VideoThumbnail = styled.img`
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+`
+
+const VideoInfo = styled.div`
+  color: #fff;
+  
+  h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+  }
+  
+  p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+`
+
+const VideoRecommendationList = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+`
+
+const VideoModal = styled(motion.div)`
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90vw;
+  max-width: 800px;
+  background: rgba(20, 20, 40, 0.95);
+  border: 1px solid rgba(57, 255, 20, 0.3);
+  border-radius: 20px;
+  padding: 1rem;
+  z-index: 1100;
+`
+
+const VideoWrapper = styled.div`
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 비율 */
+  height: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  
+  iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+`
+
+const VideoControls = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  color: #fff;
+  
+  h3 {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+`
+
+const VideoLink = styled.button`
+  color: #39FF14;
+  cursor: pointer;
+  text-decoration: underline;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  
+  &:hover {
+    color: #00ff9d;
+  }
+`
+
+const MessageVideoWrapper = styled.div`
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 비율 */
+  margin-top: 1rem;
+  border-radius: 12px;
+  overflow: hidden;
+  
+  iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+`;
+
 export default function ChatPage() {
   const [isRecording, setIsRecording] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -31,7 +444,13 @@ export default function ChatPage() {
   const [timer, setTimer] = useState(0)
   const [coins, setCoins] = useState(0)
   const [hasVoiceAccess, setHasVoiceAccess] = useState(true)
-  const [messages, setMessages] = useState<Array<{type: 'user' | 'ai', text: string}>>([])
+  const [messages, setMessages] = useState<Array<Message>>([])
+  const [isAiTyping, setIsAiTyping] = useState(false)
+  const [showSuperChatModal, setShowSuperChatModal] = useState(false)
+  const [isSuperChatEnabled, setIsSuperChatEnabled] = useState(false)
+  const [superChatExpiryDate, setSuperChatExpiryDate] = useState<Date | null>(null)
+  const [currentVideo, setCurrentVideo] = useState<string | null>(null)
+  const [videoTitle, setVideoTitle] = useState<string>('')
   
   const mediaRecorderRef = useRef<{
     stream: MediaStream | null;
@@ -106,12 +525,101 @@ export default function ChatPage() {
     }
   }
 
+  // 메시지 애니메이션 variants
+  const messageVariants = {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, x: -20 }
+  }
+
+  // AI 타이핑 애니메이션
+  const typingVariants = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 }
+  }
+
+  const dotVariants = {
+    animate: {
+      y: [0, -5, 0],
+      transition: {
+        duration: 0.6,
+        repeat: Infinity,
+        repeatType: "reverse" as const
+      }
+    }
+  }
+
+  // 슈퍼챗 구매
+  const purchaseSuperChat = async () => {
+    try {
+      // 실제 구현에서는 여기에 수이 코인 결제 로직 추가
+      const response = await fetch(`${API_BASE_URL}/purchase/superchat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: 'user',
+          amount: 100 // 예시 금액
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('결제에 실패했습니다');
+      }
+
+      const expiryDate = new Date();
+      expiryDate.setMonth(expiryDate.getMonth() + 1);
+      
+      setIsSuperChatEnabled(true);
+      setSuperChatExpiryDate(expiryDate);
+      setShowSuperChatModal(false);
+      setCoins(prev => prev - 100); // 예시 금액
+      
+    } catch (error: any) {
+      setError(error.message || '결제 중 오류가 발생했습니다');
+    }
+  }
+
+  const extractVideoId = (url: string): string | null => {
+    if (!url) return null;
+    
+    // YouTube URL 패턴들
+    const patterns = [
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/,
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([^/?]+)/,
+      /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([^/?]+)/
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    return null;
+  };
+
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return
+    if (!inputMessage.trim()) return;
 
     try {
-      setIsProcessing(true)
-      setMessages(prev => [...prev, { type: 'user', text: inputMessage }])
+      setIsProcessing(true);
+      
+      // YouTube 링크가 있는지 확인
+      const videoId = extractVideoId(inputMessage);
+      
+      // 사용자 메시지 추가
+      setMessages(prev => [...prev, { 
+        type: 'user', 
+        text: inputMessage,
+        isSuper: isSuperChatEnabled,
+        videoId: videoId || undefined
+      } as Message]);
+      
+      setInputMessage('');
+      setIsAiTyping(true);
       
       const response = await fetch(`${API_BASE_URL}/jay/message`, {
         method: 'POST',
@@ -121,31 +629,50 @@ export default function ChatPage() {
         body: JSON.stringify({
           text: inputMessage,
           userId: 'user',
-          userName: 'User'
+          userName: 'User',
+          isSuper: isSuperChatEnabled,
+          videoId: videoId || undefined
         }),
-      })
+      });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || '서버 응답 오류')
+        throw new Error('서버 응답 오류');
       }
 
-      const data = await response.json()
+      const data = await response.json();
       
-      // AI 응답 추가 및 음성 재생
-      data.forEach((message: { text: string }) => {
-        setMessages(prev => [...prev, { type: 'ai', text: message.text }])
-        playAudioResponse(message.text) // 음성으로 변환하여 재생
-      })
+      // AI 응답 처리
+      for (const message of data) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // 메시지에서 YouTube 링크 찾기
+        const messageVideoId = extractVideoId(message.text);
+        
+        // 메시지 추가
+        setMessages(prev => [...prev, { 
+          type: 'ai', 
+          text: message.text,
+          videoId: messageVideoId || undefined,
+          recommendations: message.recommendations?.map((video: any) => ({
+            id: video.id,
+            title: video.title,
+            thumbnail: `https://img.youtube.com/vi/${video.id}/maxresdefault.jpg`,
+            duration: video.duration || '30:00',
+            difficulty: video.difficulty || '중급',
+            category: video.category || '전신 운동'
+          }))
+        } as Message]);
+        
+        playAudioResponse(message.text);
+      }
       
     } catch (error: any) {
-      console.error('메시지 전송 중 오류:', error)
-      setError(error.message || '메시지 전송 중 오류가 발생했습니다')
+      setError(error.message || '메시지 전송 중 오류가 발생했습니다');
     } finally {
-      setIsProcessing(false)
-      setInputMessage('')
+      setIsProcessing(false);
+      setIsAiTyping(false);
     }
-  }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -360,217 +887,306 @@ export default function ChatPage() {
     clearTimeout(timerTimeout)
   }
 
-  return (
-    <div className="home-container bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 min-h-screen p-4 relative overflow-hidden">
-      <Helmet>
-        <title>AI 트레이너 Jay</title>
-        <meta name="description" content="AI 기반 피트니스 트레이너" />
-        <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
-      </Helmet>
+  const handleYouTubeLink = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urls = text.match(urlRegex);
+    
+    if (urls) {
+      urls.forEach(url => {
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+          const videoId = extractVideoId(url);
+          if (videoId) {
+            setCurrentVideo(videoId);
+            setVideoTitle('YouTube 영상');
+          }
+        }
+      });
+    }
+    
+    return text.replace(urlRegex, (url) => {
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        return `<VideoLink onClick={() => handleVideoClick('${url}')}><FaYoutube /> 영상 보기</VideoLink>`;
+      }
+      return url;
+    });
+  };
 
-      {/* 배경 효과 */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
-      <div className="absolute inset-0 bg-gradient-radial from-purple-500/20 via-transparent to-transparent"></div>
+  const handleVideoClick = (url: string) => {
+    const videoId = extractVideoId(url);
+    if (videoId) {
+      setCurrentVideo(videoId);
+      setVideoTitle('운동 영상');
+    }
+  };
 
-      <div className="ai-agent-container relative z-10 mb-8">
-        <div className="ai-agent-glow absolute inset-0 bg-gradient-to-r from-cyan-500/30 to-purple-500/30 blur-xl"></div>
-        <motion.img
-          src={jayAgentImage}
-          alt="AI 트레이너 Jay"
-          className="ai-agent-image w-32 h-32 rounded-full border-4 border-cyan-500/50 shadow-neon"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ 
-            duration: 0.8,
-            ease: "easeOut"
-          }}
-        />
-      </div>
-
-      <div className="chat-container backdrop-blur-md bg-black/30 rounded-2xl p-4 shadow-neon max-w-4xl mx-auto">
-        <div className="messages-container max-h-[60vh] overflow-y-auto custom-scrollbar mb-4">
-          <AnimatePresence mode="wait">
-            {messages.map((msg, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, x: msg.type === 'ai' ? -20 : 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: msg.type === 'ai' ? -20 : 20 }}
-                transition={{ duration: 0.3 }}
-                className={`message-box ${
-                  msg.type === 'ai' 
-                    ? 'ai-message bg-gradient-to-r from-cyan-900/50 to-blue-900/50 border-l-4 border-cyan-500' 
-                    : 'user-message bg-gradient-to-r from-purple-900/50 to-pink-900/50 border-r-4 border-purple-500'
-                } rounded-lg p-4 mb-4 backdrop-blur-sm`}
+  const renderMessage = (msg: Message) => {
+    return (
+      <>
+        <div style={{ whiteSpace: 'pre-wrap' }}>
+          {msg.text}
+        </div>
+        {msg.videoId && (
+          <MessageVideoWrapper>
+            <iframe
+              width="100%"
+              height="100%"
+              src={`https://www.youtube.com/embed/${msg.videoId}?autoplay=1`}
+              title="YouTube video player"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </MessageVideoWrapper>
+        )}
+        {msg.recommendations && msg.recommendations.length > 0 && (
+          <VideoRecommendationList>
+            {msg.recommendations.map((video) => (
+              <VideoRecommendationCard
+                key={video.id}
+                onClick={() => {
+                  setMessages(prev => [...prev, {
+                    type: 'ai',
+                    text: video.title,
+                    videoId: video.id
+                  } as Message]);
+                }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
-                <div className={`message-label text-sm ${
-                  msg.type === 'ai' ? 'text-cyan-400' : 'text-purple-400'
-                } mb-2 font-semibold`}>
-                  {msg.type === 'ai' ? 'AI 트레이너 Jay' : '나'}
-                </div>
-                <div className="message-text text-gray-100">{msg.text}</div>
-              </motion.div>
+                <VideoThumbnail src={video.thumbnail} alt={video.title} />
+                <VideoInfo>
+                  <h4>{video.title}</h4>
+                  <p>
+                    <FaPlay /> {video.duration}
+                  </p>
+                  <p>
+                    <FaYoutube /> {video.category} • {video.difficulty}
+                  </p>
+                </VideoInfo>
+              </VideoRecommendationCard>
             ))}
-          </AnimatePresence>
-          <div ref={messagesEndRef} />
-        </div>
+          </VideoRecommendationList>
+        )}
+      </>
+    );
+  };
 
-        <div className="input-container relative">
-          <textarea
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="메시지를 입력하세요..."
-            className="message-input w-full bg-black/30 text-white rounded-lg pl-4 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none backdrop-blur-sm"
-            rows={1}
-          />
-          <motion.button
-            onClick={handleSendMessage}
-            className="send-button absolute right-2 top-1/2 -translate-y-1/2 p-2 text-cyan-400 hover:text-cyan-300 disabled:text-gray-600"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            disabled={isProcessing}
-          >
-            {isProcessing ? <FaSpinner className="animate-spin" /> : <FaPaperPlane />}
-          </motion.button>
-        </div>
-      </div>
+  return (
+    <ChatContainer>
+      <Helmet>
+        <title>Jay AI 트레이너와의 대화</title>
+      </Helmet>
+      
+      <BackgroundEffect />
+      
+      <Header
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <AgentImage src={jayAgentImage} alt="Jay AI 트레이너" />
+        <AgentInfo>
+          <h2>Jay AI 트레이너</h2>
+          <p>항상 대기중</p>
+        </AgentInfo>
+        <CoinBalance>
+          <FaCoins /> {coins} SUI
+        </CoinBalance>
+      </Header>
 
-      <div className="voice-interface mt-8 relative z-10">
-        <div className="visualizer-container h-20 mb-4">
-          <canvas
-            ref={canvasRef}
-            className="w-full h-full rounded-lg bg-black/20 backdrop-blur-sm"
-            width={1024}
-            height={200}
-          />
-        </div>
-
-        <div className="flex items-center justify-center gap-4">
-          <motion.button
-            onClick={isRecording ? stopRecording : startRecording}
-            disabled={isProcessing}
-            className={`record-button w-16 h-16 rounded-full flex items-center justify-center ${
-              isRecording 
-                ? 'bg-gradient-to-r from-red-600 to-pink-600 shadow-neon-red' 
-                : 'bg-gradient-to-r from-cyan-600 to-blue-600 shadow-neon-cyan'
-            }`}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <AnimatePresence mode="wait">
-              {isProcessing ? (
-                <motion.div
-                  key="processing"
-                  initial={{ opacity: 0, rotate: -180 }}
-                  animate={{ opacity: 1, rotate: 0 }}
-                  exit={{ opacity: 0, rotate: 180 }}
-                  className="text-white text-xl"
-                >
-                  <FaSpinner className="animate-spin" />
-                </motion.div>
-              ) : isRecording ? (
-                <motion.div
-                  key="recording"
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.5 }}
-                  className="text-white text-xl"
-                >
-                  <FaStop />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="microphone"
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.5 }}
-                  className="text-white text-xl"
-                >
-                  <FaMicrophone />
-                </motion.div>
+      <ChatArea>
+        <AnimatePresence mode="popLayout">
+          {messages.map((msg, index) => (
+            <MessageGroup key={index} $isAi={msg.type === 'ai'}>
+              {msg.type === 'ai' && (
+                <MessageProfile>
+                  <ProfileImage src={jayAgentImage} alt="Jay AI 트레이너" />
+                  <ProfileName>Jay</ProfileName>
+                </MessageProfile>
               )}
-            </AnimatePresence>
-          </motion.button>
-
-          {isRecording && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="timer text-2xl font-mono text-cyan-400 bg-black/30 px-4 py-2 rounded-lg backdrop-blur-sm"
-            >
-              {timeDisplay}
-            </motion.div>
+              {msg.isSuper ? (
+                <SuperChatBubble
+                  $isAi={msg.type === 'ai'}
+                  variants={messageVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  layout
+                >
+                  <FaCrown style={{ color: '#39FF14', marginRight: '0.5rem' }} />
+                  {renderMessage(msg)}
+                </SuperChatBubble>
+              ) : (
+                <MessageBubble
+                  $isAi={msg.type === 'ai'}
+                  variants={messageVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  layout
+                >
+                  {renderMessage(msg)}
+                </MessageBubble>
+              )}
+              {msg.type === 'user' && (
+                <MessageProfile>
+                  <ProfileImage 
+                    src="https://api.dicebear.com/7.x/avataaars/svg?seed=user" 
+                    alt="사용자" 
+                  />
+                  <ProfileName>나</ProfileName>
+                </MessageProfile>
+              )}
+            </MessageGroup>
+          ))}
+          
+          {isAiTyping && (
+            <MessageGroup $isAi={true}>
+              <MessageProfile>
+                <ProfileImage src={jayAgentImage} alt="Jay AI 트레이너" />
+                <ProfileName>Jay</ProfileName>
+              </MessageProfile>
+              <TypingIndicator
+                variants={typingVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                {[0, 1, 2].map(i => (
+                  <motion.span
+                    key={i}
+                    variants={dotVariants}
+                    animate="animate"
+                    style={{ animationDelay: `${i * 0.2}s` }}
+                  />
+                ))}
+              </TypingIndicator>
+            </MessageGroup>
           )}
-        </div>
-      </div>
+        </AnimatePresence>
+        <div ref={messagesEndRef} />
+      </ChatArea>
 
+      <InputArea>
+        <Input
+          value={inputMessage}
+          onChange={(e) => setInputMessage(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder="메시지를 입력하세요..."
+          disabled={isProcessing}
+        />
+        
+        <SuperChatButton
+          onClick={() => setShowSuperChatModal(true)}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+        >
+          <FaCrown />
+          {isSuperChatEnabled ? '슈퍼챗 활성화됨' : '슈퍼챗 구매'}
+        </SuperChatButton>
+        
+        <Button
+          onClick={handleSendMessage}
+          disabled={isProcessing || !inputMessage.trim()}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+        >
+          {isProcessing ? <FaSpinner /> : <FaPaperPlane />}
+        </Button>
+        
+        <Button
+          onClick={isRecording ? stopRecording : startRecording}
+          disabled={isProcessing}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+        >
+          {isRecording ? <FaStop /> : <FaMicrophone />}
+        </Button>
+      </InputArea>
+      
       <AnimatePresence>
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="error-message fixed bottom-4 left-1/2 -translate-x-1/2 bg-red-900/80 text-white px-6 py-3 rounded-lg backdrop-blur-sm border-l-4 border-red-500"
-          >
-            {error}
-          </motion.div>
+        {showSuperChatModal && (
+          <>
+            <ModalOverlay
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSuperChatModal(false)}
+            />
+            <SuperChatModal
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+            >
+              <ModalHeader>
+                <h3>
+                  <FaCrown style={{ color: '#39FF14' }} />
+                  슈퍼챗 구매
+                </h3>
+                <CloseButton onClick={() => setShowSuperChatModal(false)}>
+                  <FaTimes />
+                </CloseButton>
+              </ModalHeader>
+              
+              <div style={{ color: '#fff', marginBottom: '1.5rem' }}>
+                <p>슈퍼챗을 구매하면 다음과 같은 혜택을 받을 수 있습니다:</p>
+                <ul>
+                  <li>특별한 메시지 스타일</li>
+                  <li>우선 응답</li>
+                  <li>한 달 동안 무제한 이용</li>
+                </ul>
+                <p>가격: 100 SUI</p>
+              </div>
+              
+              <Button
+                onClick={purchaseSuperChat}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                style={{ width: '100%' }}
+              >
+                구매하기
+              </Button>
+            </SuperChatModal>
+          </>
         )}
       </AnimatePresence>
-
-      <audio ref={audioPlayer} className="hidden" />
-
-      <style>
-        {`
-        .shadow-neon {
-          box-shadow: 0 0 20px rgba(6, 182, 212, 0.3),
-                      0 0 40px rgba(168, 85, 247, 0.2);
-        }
-        
-        .shadow-neon-cyan {
-          box-shadow: 0 0 15px rgba(6, 182, 212, 0.4),
-                      0 0 30px rgba(59, 130, 246, 0.3);
-        }
-        
-        .shadow-neon-red {
-          box-shadow: 0 0 15px rgba(239, 68, 68, 0.4),
-                      0 0 30px rgba(236, 72, 153, 0.3);
-        }
-
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(0, 0, 0, 0.2);
-          border-radius: 3px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgb(14, 116, 144);
-          border-radius: 3px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgb(8, 145, 178);
-        }
-
-        .bg-grid-pattern {
-          background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-                           linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-          background-size: 20px 20px;
-        }
-
-        .message-box {
-          transition: all 0.3s ease;
-        }
-
-        .message-box:hover {
-          transform: translateY(-2px);
-        }
-        `}
-      </style>
-    </div>
+      
+      <AnimatePresence>
+        {currentVideo && (
+          <>
+            <ModalOverlay
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCurrentVideo(null)}
+            />
+            <VideoModal
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+            >
+              <VideoControls>
+                <h3>{videoTitle}</h3>
+                <Button onClick={() => setCurrentVideo(null)}>
+                  <FaTimes />
+                </Button>
+              </VideoControls>
+              <VideoWrapper>
+                <iframe
+                  src={`https://www.youtube.com/embed/${currentVideo}?autoplay=1`}
+                  title="YouTube video player"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </VideoWrapper>
+            </VideoModal>
+          </>
+        )}
+      </AnimatePresence>
+      
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+      <audio ref={audioPlayer} style={{ display: 'none' }} />
+    </ChatContainer>
   )
 } 
